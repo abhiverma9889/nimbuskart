@@ -1,0 +1,61 @@
+{
+  "scan_timestamp": "2026-01-15T10:00:00Z",
+  "account_id": "000000000000",
+  "region": "us-east-1",
+  "summary": {
+    "total_orphans": 3,
+    "estimated_monthly_waste_usd": 19.27
+  },
+  "findings": [
+    {
+      "resource_id": "vol-12345",
+      "resource_type": "ebs_volume",
+      "reason": "unattached",
+      "age_days": 21,
+      "estimated_monthly_cost_usd": 8.0,
+      "tags": {
+        "Project": "nimbuskart",
+        "Environment": "staging",
+        "Owner": "platform-team",
+        "ManagedBy": "terraform"
+      },
+      "suggested_action": "delete",
+      "safe_to_auto_delete": true
+    },
+    {
+      "resource_id": "i-67890",
+      "resource_type": "ec2_instance",
+      "reason": "stopped_for_30_days",
+      "age_days": 30,
+      "estimated_monthly_cost_usd": 7.5,
+      "tags": {
+        "Project": null,
+        "Environment": "dev",
+        "Owner": null,
+        "ManagedBy": null
+      },
+      "suggested_action": "review",
+      "safe_to_auto_delete": false,
+      "missing_tags": [
+        "Project",
+        "Owner",
+        "ManagedBy"
+      ]
+    },
+    {
+      "resource_id": "52.1.2.3",
+      "resource_type": "elastic_ip",
+      "reason": "not_associated",
+      "age_days": 45,
+      "estimated_monthly_cost_usd": 3.77,
+      "tags": {
+        "Project": "nimbuskart",
+        "Environment": "staging",
+        "Owner": "platform-team",
+        "ManagedBy": "terraform"
+      },
+      "suggested_action": "delete",
+      "safe_to_auto_delete": true
+    }
+  ]
+}

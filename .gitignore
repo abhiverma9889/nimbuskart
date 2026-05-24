@@ -1,0 +1,22 @@
+﻿# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Reports
+janitor/report.json
+janitor/report.md
+
+# IDEs
+.vscode/
+.idea/
+
+# OS
+.DS_Store

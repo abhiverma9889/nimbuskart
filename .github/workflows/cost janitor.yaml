@@ -1,0 +1,158 @@
+name: Cost Janitor CI
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+
+jobs:
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Terraform Format Check
+        run: |
+          cd terraform
+          terraform fmt -recursive -check
+
+      - name: Terraform Validate
+        run: |
+          cd terraform
+          terraform init -backend=false
+          terraform validate
+
+  janitor-test:
+    name: Cost Janitor Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          cd janitor
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Run unit tests
+        run: |
+          cd janitor
+          pytest tests/ -v
+
+  cost-janitor-scan:
+    name: Cost Janitor Scan
+    runs-on: ubuntu-latest
+    services:
+      localstack:
+        image: localstack/localstack
+        ports:
+          - 4566:4566
+        env:
+          SERVICES: ec2,s3,sts
+          DEBUG: 0
+          DATA_DIR: /tmp/localstack/data
+        options: >-
+          --health-cmd="awslocal kinesis list-streams"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+
+      - name: Install AWS CLI
+        run: pip install awscli awscli-local
+
+      - name: Wait for LocalStack
+        run: sleep 10
+
+      - name: Initialize Terraform
+        run: |
+          cd terraform
+          AWS_ENDPOINT_URL=http://localhost:4566 \
+          AWS_ACCESS_KEY_ID=test \
+          AWS_SECRET_ACCESS_KEY=test \
+          AWS_DEFAULT_REGION=us-east-1 \
+          terraform init
+
+      - name: Apply Terraform
+        run: |
+          cd terraform
+          AWS_ENDPOINT_URL=http://localhost:4566 \
+          AWS_ACCESS_KEY_ID=test \
+          AWS_SECRET_ACCESS_KEY=test \
+          AWS_DEFAULT_REGION=us-east-1 \
+          terraform apply -auto-approve
+
+      - name: Install Janitor dependencies
+        run: |
+          cd janitor
+          pip install -r requirements.txt
+
+      - name: Run Cost Janitor (Dry-Run)
+        id: janitor
+        run: |
+          cd janitor
+          python janitor.py \
+            --region us-east-1 \
+            --endpoint-url http://localhost:4566 \
+            --dry-run || true  # Allow failure for CI to continue
+
+      - name: Upload report artifacts
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: janitor-reports
+          path: |
+            janitor/report.json
+            janitor/report.md
+
+      - name: Comment on PR with findings
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            
+            const reportPath = 'janitor/report.md';
+            
+            try {
+              if (fs.existsSync(reportPath)) {
+                const reportContent = fs.readFileSync(reportPath, 'utf8');
+                
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: '## 💰 Cost Janitor Report\n\n' + reportContent
+                });
+              }
+            } catch (error) {
+              console.log('Could not post comment:', error);
+            }

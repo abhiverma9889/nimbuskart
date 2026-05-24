@@ -1,0 +1,10 @@
+{
+  "scan_timestamp": "2026-05-24T18:56:18.227648Z",
+  "account_id": "000000000000",
+  "region": "us-east-1",
+  "summary": {
+    "total_orphans": 0,
+    "estimated_monthly_waste_usd": 0
+  },
+  "findings": []
+}
